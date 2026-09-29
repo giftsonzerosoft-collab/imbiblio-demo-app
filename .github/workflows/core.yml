@@ -1,0 +1,70 @@
+name: core
+
+# `iBiblioCore` has no Readium dependency, so it builds and tests anywhere Swift
+# runs. This is the job that proves the business logic without a Mac.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows / Swift ${{ matrix.swift }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 6.4 is the toolchain installed on windows-latest images.
+        swift: ["6.4"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Swift toolchain
+        # `windows-latest` already ships Swift 6.x; the wrapper script only has to
+        # load the MSVC environment, which `Scripts/swift.ps1` does.
+        shell: pwsh
+        run: swift --version
+
+      - name: Normalise line endings
+        shell: pwsh
+        run: ./Scripts/normalize-line-endings.ps1
+
+      - name: Build
+        shell: pwsh
+        run: ./Scripts/swift.ps1 build
+
+      - name: Test
+        shell: pwsh
+        run: ./Scripts/swift.ps1 test
+
+  linux:
+    name: Ubuntu / Swift
+    runs-on: ubuntu-latest
+    container: swift:6.4-jammy
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test
+        run: |
+          swift build
+          swift test
+
+  macos:
+    name: macOS / Swift
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guards against the Windows-only workarounds leaking into the core.
+      - name: Build and test
+        run: |
+          swift build
+          swift test

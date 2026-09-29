@@ -1,0 +1,36 @@
+# Normalize line endings so that Windows-authored commits do not produce
+# phantom diffs (and build failures) on macOS. See README.md, "Phase 0".
+* text=auto
+
+# Source files that must always be LF. Xcode and XcodeGen both break on CRLF.
+*.swift        text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.plist        text eol=lf
+*.pbxproj      text eol=lf
+*.xcconfig     text eol=lf
+*.entitlements text eol=lf
+*.json         text eol=lf
+*.md           text eol=lf
+*.py           text eol=lf
+*.sh           text eol=lf
+*.xcscheme     text eol=lf
+
+# Binary assets must never be touched.
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.pdf          binary
+*.wav          binary
+*.mp3          binary
+*.m4a          binary
+*.epub         binary
+*.ttf          binary
+*.otf          binary
+*.zip          binary
+
+# Asset catalogs are directories containing JSON + binary: treat as binary to
+# avoid corrupting compiled asset archives.
+*.xcassets     binary
+*.xcassets/**  binary

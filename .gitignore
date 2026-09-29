@@ -1,0 +1,42 @@
+# --- macOS ------------------------------------------------------------------
+.DS_Store
+
+# --- Swift Package Manager ---------------------------------------------------
+# NOTE: the original template ignored /Packages, which would have silently
+# hidden local SPM packages living in a Packages/ directory. That rule is
+# intentionally NOT carried over.
+/.build
+.swiftpm/
+/Packages/*
+!/Packages/README.md
+
+# --- Generated Xcode project (XcodeGen) --------------------------------------
+# project.yml is the source of truth. The .xcodeproj is a build artifact and
+# must never be committed, or it becomes a permanent merge-conflict source.
+*.xcodeproj/
+*.xcworkspace/
+!*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# --- SwiftPM / Xcode credentials ---------------------------------------------
+.netrc
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+# --- Generated test fixtures -------------------------------------------------
+# Produced by Scripts/generate_fixtures.py. Regenerated automatically by the
+# Xcode pre-build phase and by CI, so there is no reason to commit them.
+App/Resources/Fixtures/*
+!App/Resources/Fixtures/.gitkeep
+
+# --- Test results -----------------------------------------------------------
+*.xcresult
+Screenshots/
+TestResults/

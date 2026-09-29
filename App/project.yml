@@ -1,0 +1,147 @@
+# XcodeGen manifest for the iOS app.
+#
+# The Xcode project is *generated*, never committed, so the project file and
+# the source tree cannot drift apart. Run:
+#
+#   brew install xcodegen
+#   cd App && xcodegen generate
+#
+# `iBiblioCore` is consumed as a local Swift package (the repository root), which
+# is the same package `swift build` / `swift test` use on Windows. One source of
+# truth, two platforms.
+
+name: iBiblioDemo
+
+options:
+  bundleIdPrefix: com.example.ibiblio
+  deploymentTarget:
+    # 17.0, not 16.0: the UI uses `ContentUnavailableView`, the
+    # `.topBarLeading`/`.topBarTrailing` toolbar placements, and the two-argument
+    # `onChange(of:)` -- all iOS 17. Guessing 16 and scattering `if #available`
+    # through every view would be worse than declaring the real floor.
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+# --- Packages -----------------------------------------------------------------
+
+packages:
+  # The same package SwiftPM builds on Windows; no Readium in sight.
+  iBiblioCore:
+    path: ../
+
+  # Readium is iOS-only (it links UIKit / PDFKit / WebKit / AVFoundation), so it
+  # is deliberately NOT a dependency of the root package. It only enters the
+  # graph here, in the Apple-only app target.
+  #
+  # 3.11.0 is `swift-tools-version:5.10` and declares `platforms: [.iOS("15.0")]`.
+  Readium:
+    url: https://github.com/readium/swift-toolkit.git
+    exactVersion: 3.11.0
+
+# --- Settings -----------------------------------------------------------------
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    CLANG_ENABLE_MODULES: YES
+    ALWAYS_SEARCH_USER_PATHS: NO
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+      SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+# --- Targets ------------------------------------------------------------------
+
+targets:
+
+  iBiblioDemo:
+    type: application
+    platform: iOS
+    # No per-target deploymentTarget: the global 17.0 in `options` applies. A
+    # per-target "16.0" here would silently override it and break every iOS 17
+    # API in the UI.
+    sources:
+      - path: Sources
+      - path: Resources
+        buildPhase: resources
+    dependencies:
+      - package: iBiblioCore
+        product: iBiblioCore
+      # Readium 3.x ships one product per layer. Models, retrieval and rendering
+      # are separate modules; this app needs all three.
+      - package: Readium
+        product: ReadiumShared
+      - package: Readium
+        product: ReadiumStreamer
+      - package: Readium
+        product: ReadiumNavigator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.ibiblio.demo
+        PRODUCT_NAME: iBiblio
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/Support/Info.plist
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Signing is left automatic; set DEVELOPMENT_TEAM locally or let Xcode
+        # handle it when opening the project.
+        CODE_SIGN_STYLE: Automatic
+        # UI tests pass launch arguments that toggle mock auth, which needs the
+        # deterministic clock hooks in iBiblioCore.
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEMO"
+
+  # Unit tests for the app's own pure logic: launch-argument parsing, the
+  # fixture manifest, and library entry identity. Hosted by the app so it can
+  # reach the internal types, and run on the simulator before the UI tests.
+  iBiblioDemoTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: iBiblioDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.ibiblio.demo.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  iBiblioDemoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: iBiblioDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.ibiblio.demo.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: iBiblioDemo
+
+# --- Schemes ------------------------------------------------------------------
+
+schemes:
+
+  iBiblioDemo:
+    build:
+      targets:
+        iBiblioDemo: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - iBiblioDemoTests
+        - iBiblioDemoUITests
+    archive:
+      config: Release

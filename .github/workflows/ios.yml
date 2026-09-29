@@ -1,0 +1,102 @@
+name: ios
+
+# The Readium half of the project. iOS-only, so it needs a macOS runner -- which
+# GitHub provides for free on public repositories, meaning the app can be verified
+# end to end even before you have a Mac in front of you.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-xcodeproj:
+    name: Generate project
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate fixtures
+        run: python3 Scripts/generate_fixtures.py
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: App
+        run: xcodegen generate
+
+      - name: Upload the generated project
+        uses: actions/upload-artifact@v4
+        with:
+          name: iBiblioDemo-xcodeproj
+          path: App/iBiblioDemo.xcodeproj
+          retention-days: 7
+
+  build-and-test:
+    name: Build + UI tests (iPhone 16)
+    needs: generate-xcodeproj
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate fixtures
+        run: python3 Scripts/generate_fixtures.py
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: App
+        run: xcodegen generate
+
+      # Readium 3.11.0 declares `platforms: [.iOS("15.0")]` but its transitive
+      # dependencies (and swift-docc-plugin) need a recent Xcode.
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Resolve packages
+        working-directory: App
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project iBiblioDemo.xcodeproj \
+            -scheme iBiblioDemo
+
+      - name: Build the app
+        working-directory: App
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project iBiblioDemo.xcodeproj \
+            -scheme iBiblioDemo \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      - name: Run UI tests
+        working-directory: App
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project iBiblioDemo.xcodeproj \
+            -scheme iBiblioDemo \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            App/build/*.xcresult
+            ~/Library/Developer/Xcode/DerivedData/**/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
